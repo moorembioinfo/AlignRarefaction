@@ -4,6 +4,7 @@ import random
 import numpy
 import sys
 import argparse
+import screed
 from itertools import repeat, combinations
 from concurrent.futures import ProcessPoolExecutor
 
@@ -47,36 +48,43 @@ def add_args(a):
         type=int,
         default=100,
     )
+    parser.add_argument(
+        "--keepref",
+        help="Retain reference sequence in analysis",
+        default=False,
+    )
 
     args = parser.parse_args(a)
     return args
 
-def rarefaction(iteration, allseqsdict, subpopsize, cutoff):
+def rarefaction(iterations, allseqsdict, subpopsize, cutoff):
     """
     Run rarefaction by counting sites for sampled
     population present in ≥Threshold% taxa
     """
-    #Get random genome sample
-    subsamplekeys = random.sample(list(allseqsdict.keys()), subpopsize)
-    #Iterate each sequence and record gaps
-    indexdict={}
-    for key in subsamplekeys:
-        seq = allseqsdict.get(key)
-        pos =0
-        for nuc in seq:
-            if nuc in ("-", "N"):
-                if pos in indexdict:
-                    indexdict[pos] = indexdict.get(pos) + 1
-                else:
-                    indexdict[pos] = 1
-            counter+=1
-    seqlen = len(allseqsdict.get(subsamplekeys[0]))
-    threshold_genomes = (round(subpopsize)/100)*cutoff
-    noncoresites = 0
-    for pos in indexdict:
-        if indexdict.get(pos)<threshold_genomes:
-            noncoresites+=1
-    coresites = seqlen-noncoresites
+    coresites_list=[]
+    for iteration in iterations:
+        #Get random genome sample
+        subsamplekeys = random.sample(list(allseqsdict.keys()), subpopsize)
+        #Iterate each sequence and record gaps
+        indexdict={}
+        for key in subsamplekeys:
+            seq = allseqsdict.get(key)
+            pos =0
+            for nuc in seq:
+                if nuc in ("-", "N"):
+                    if pos in indexdict:
+                        indexdict[pos] = indexdict.get(pos) + 1
+                    else:
+                        indexdict[pos] = 1
+                pos+=1
+        seqlen = len(allseqsdict.get(subsamplekeys[0]))
+        threshold_genomes = (round(subpopsize)/100)*cutoff
+        noncoresites = 0
+        for pos in indexdict:
+            if indexdict.get(pos)<threshold_genomes:
+                noncoresites+=1
+        coresites_list.append(seqlen-noncoresites)
     return(coresites)
 
 
@@ -84,50 +92,37 @@ if __name__ == "__main__":
 
     args = add_args(sys.argv[1:])
     fn = args.alignment
-    outname = f"{fn}.1l"
-    output = open(outname, "w")
     popsize = 0
-
+    allseqsdict={}
     for record in screed.open(fn):
         if not args.keepref:
             if record.name == "Reference":
                 pass
             else:
-                output.write(">" + record.name + "\n")
-                output.write(record.sequence + "\n")
+                allseqsdict[record.name]=record.sequence
                 popsize += 1
         else:
-            output.write(">" + record.name + "\n")
-            output.write(record.sequence + "\n")
+            allseqsdict[record.name]=record.sequence
             popsize += 1
-
     percentcore = args.cutoff
-    output.close()
-    print("Finished alignment format conversion")
-
+    print("Finished reading in alignment")
     allresults = []
     for i in range(args.minpop,popsize,args.step):
+        popresults=[]
         listofsizes=[]
         nproc = args.nproc
-        if nproc ==1:
-            for j in range(0,args.iterations):
-                listofsizes.append(rarefaction(i, allseqsdict))
-                print(f'Iteration {i}')
-            print(f'Finished popsize {popsize}')
-            #outline= ','.join(str(x) for x in aln_lengths)
-            outline= ','.join(listofsizes)
-            output.write(f'{popsize},{outline}\n')
-        else:
-            chunk_size = args.iterations/nproc
-            rangelist = list(range(0,args.iterations))
-            chunks = [
-                rangelist[i : i + chunk_size] for i in range(0, len(rangelist), chunk_size)
-            ]
-            subpopsize=i
+        chunk_size = round(args.iterations/nproc)
+        rangelist = list(range(0,args.iterations))
+        chunks = [
+            rangelist[i : i + chunk_size] for i in range(0, len(rangelist), chunk_size)
+        ]
+        subpopsize=i
 
-            with ProcessPoolExecutor(nproc) as executor:
-                results = executor.map(rarefaction(chunks, repeat(allseqsdict), repeat(subpopsize), repeat(args.cutoff) )))
-
-                allresults.append(results):
+        with ProcessPoolExecutor(nproc) as executor:
+            results = executor.map(rarefaction, chunks, repeat(allseqsdict), repeat(subpopsize), repeat(args.cutoff) )
+            for result_l in results:
+                for result in result_l:
+                    popresults.append(result)
+        allresults.append(popresults)
         print(f"Finished popsize: {i}")
     print(allresults)
