@@ -2,6 +2,11 @@
 import os
 import random
 import numpy
+import sys
+import argparse
+from itertools import repeat, combinations
+from concurrent.futures import ProcessPoolExecutor
+
 
 def add_args(a):
     """
@@ -46,6 +51,33 @@ def add_args(a):
     args = parser.parse_args(a)
     return args
 
+def rarefaction(iteration, allseqsdict, subpopsize, cutoff):
+    """
+    Run rarefaction by counting sites for sampled
+    population present in ≥Threshold% taxa
+    """
+    #Get random genome sample
+    subsamplekeys = random.sample(list(allseqsdict.keys()), subpopsize)
+    #Iterate each sequence and record gaps
+    indexdict={}
+    for key in subsamplekeys:
+        seq = allseqsdict.get(key)
+        pos =0
+        for nuc in seq:
+            if nuc in ("-", "N"):
+                if pos in indexdict:
+                    indexdict[pos] = indexdict.get(pos) + 1
+                else:
+                    indexdict[pos] = 1
+            counter+=1
+    seqlen = len(allseqsdict.get(subsamplekeys[0]))
+    threshold_genomes = (round(subpopsize)/100)*cutoff
+    noncoresites = 0
+    for pos in indexdict:
+        if indexdict.get(pos)<threshold_genomes:
+            noncoresites+=1
+    coresites = seqlen-noncoresites
+    return(coresites)
 
 
 if __name__ == "__main__":
@@ -73,12 +105,29 @@ if __name__ == "__main__":
     output.close()
     print("Finished alignment format conversion")
 
+    allresults = []
     for i in range(args.minpop,popsize,args.step):
-        listofsizes = []
-        for j in range(0,args.iterations):
-            listofsizes.append(rarefaction(i, allseqsdict))
-            print(f'Iteration {i}')
-        print(f'Finished popsize {popsize}')
-        #outline= ','.join(str(x) for x in aln_lengths)
-        outline= ','.join(listofsizes)
-        output.write(f'{popsize},{outline}\n')
+        listofsizes=[]
+        nproc = args.nproc
+        if nproc ==1:
+            for j in range(0,args.iterations):
+                listofsizes.append(rarefaction(i, allseqsdict))
+                print(f'Iteration {i}')
+            print(f'Finished popsize {popsize}')
+            #outline= ','.join(str(x) for x in aln_lengths)
+            outline= ','.join(listofsizes)
+            output.write(f'{popsize},{outline}\n')
+        else:
+            chunk_size = args.iterations/nproc
+            rangelist = list(range(0,args.iterations))
+            chunks = [
+                rangelist[i : i + chunk_size] for i in range(0, len(rangelist), chunk_size)
+            ]
+            subpopsize=i
+
+            with ProcessPoolExecutor(nproc) as executor:
+                results = executor.map(rarefaction(chunks, repeat(allseqsdict), repeat(subpopsize), repeat(args.cutoff) )))
+
+                allresults.append(results):
+        print(f"Finished popsize: {i}")
+    print(allresults)
