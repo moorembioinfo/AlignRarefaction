@@ -132,6 +132,7 @@ if __name__ == "__main__":
             for result_l in results:
                 for result in result_l:
                     popresults.append(result)
-        outline= ','.join(popresults)
+        popresultstrs = [str(int) for int in popresults]
+        outline= ','.join(popresultstrs)
         output.write(f'{subpopsize},{outline}\n')
         print(f"\n\n\nFinished popsize: {subpopsize}\n\n\n")
