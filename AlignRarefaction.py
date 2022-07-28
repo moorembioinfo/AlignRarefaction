@@ -132,7 +132,6 @@ if __name__ == "__main__":
             for result_l in results:
                 for result in result_l:
                     popresults.append(result)
-        for x in popresults:
-            outline= ','.join(listofsizes)
-            output.write(f'{subpopsize},{outline}\n')
+        outline= ','.join(popresults)
+        output.write(f'{subpopsize},{outline}\n')
         print(f"\n\n\nFinished popsize: {subpopsize}\n\n\n")
