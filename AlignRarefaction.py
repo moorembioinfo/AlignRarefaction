@@ -106,7 +106,15 @@ if __name__ == "__main__":
             popsize += 1
     percentcore = args.cutoff
     print("Finished reading in alignment")
-    allresults = []
+
+    outname ='rarefaction.csv'
+    output=open(outname, 'w')
+    output.write('popsize')
+    for j in range(0,args.iterations):
+        output.write(f',iter{j}')
+    output.write('\n')
+
+
     for i in range(args.minpop,popsize,args.step):
         popresults=[]
         listofsizes=[]
@@ -123,6 +131,7 @@ if __name__ == "__main__":
             for result_l in results:
                 for result in result_l:
                     popresults.append(result)
-        allresults.append(popresults)
-        print(f"Finished popsize: {i}")
-    print(allresults)
+        for x in popresults:
+            outline= ','.join(listofsizes)
+            output.write(f'{subpopsize},{outline}\n')
+        print(f"Finished popsize: {subpopsize}")
