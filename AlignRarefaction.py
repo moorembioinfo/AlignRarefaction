@@ -64,6 +64,7 @@ def rarefaction(iterations, allseqsdict, subpopsize, cutoff):
     """
     coresites_list=[]
     for iteration in iterations:
+        print(f'Iteration: {iteration}')
         #Get random genome sample
         subsamplekeys = random.sample(list(allseqsdict.keys()), subpopsize)
         #Iterate each sequence and record gaps
@@ -85,7 +86,7 @@ def rarefaction(iterations, allseqsdict, subpopsize, cutoff):
             if indexdict.get(pos)<threshold_genomes:
                 noncoresites+=1
         coresites_list.append(seqlen-noncoresites)
-    return(coresites)
+    return(coresites_list)
 
 
 if __name__ == "__main__":
@@ -134,4 +135,4 @@ if __name__ == "__main__":
         for x in popresults:
             outline= ','.join(listofsizes)
             output.write(f'{subpopsize},{outline}\n')
-        print(f"Finished popsize: {subpopsize}")
+        print(f"\n\n\nFinished popsize: {subpopsize}\n\n\n")
